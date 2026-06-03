@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>品牌銷售 & 廣告 Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#fff;--bg2:#f5f5f4;--bg3:#eeede9;
+  --text:#1a1a18;--text2:#57564f;--text3:#888780;
+  --border:rgba(0,0,0,0.12);--border2:rgba(0,0,0,0.2);
+  --radius:8px;--radius-lg:12px;
+  --mi:#185FA5;--nb:#0F6E56;--ds:#993C1D;
+  --up:#3B6D11;--dn:#A32D2D;
+}
+@media(prefers-color-scheme:dark){:root{--bg:#1c1c1a;--bg2:#252522;--bg3:#2e2e2b;--text:#f0ede8;--text2:#a8a69f;--text3:#706e68;--border:rgba(255,255,255,0.1);--border2:rgba(255,255,255,0.2);}}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg3);color:var(--text);font-size:14px;min-height:100vh}
+.app{display:flex;flex-direction:column;min-height:100vh}
+.topbar{background:var(--bg);border-bottom:.5px solid var(--border);padding:0 24px;display:flex;align-items:center;height:52px;position:sticky;top:0;z-index:100}
+.logo{font-size:15px;font-weight:600;margin-right:24px;white-space:nowrap}
+.nav-tabs{display:flex}
+.nav-tab{padding:0 16px;height:52px;display:flex;align-items:center;font-size:13px;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+.nav-tab:hover{color:var(--text)}
+.nav-tab.active{color:var(--text);border-bottom-color:var(--mi);font-weight:500}
+.content{flex:1;padding:20px 24px}
+.page{display:none}.page.active{display:block}
+/* Cards */
+.mcard{background:var(--bg2);border-radius:var(--radius);padding:14px 16px}
+.mcard-label{font-size:11px;color:var(--text3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em}
+.mcard-val{font-size:22px;font-weight:600;letter-spacing:-.5px}
+.mcard-sub{font-size:11px;margin-top:3px}
+.up{color:var(--up)}.down{color:var(--dn)}.neutral{color:var(--text3)}
+.chart-card{background:var(--bg);border:.5px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:12px}
+.chart-title{font-size:13px;font-weight:500;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.four-col{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--text2)}
+.legend-item{display:flex;align-items:center;gap:5px}
+.legend-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+/* Controls */
+.controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.ctrl-label{font-size:12px;color:var(--text2)}
+.ctrl-select{padding:6px 10px;border:.5px solid var(--border2);border-radius:var(--radius);background:var(--bg);color:var(--text);font-size:12px;font-family:inherit;outline:none;cursor:pointer}
+.ctrl-select:focus{border-color:var(--mi)}
+.brand-pills{display:flex;gap:6px}
+.brand-pill{padding:4px 12px;border-radius:20px;font-size:12px;cursor:pointer;border:.5px solid var(--border);background:var(--bg2);color:var(--text2);font-family:inherit}
+.brand-pill.p-ALL{background:var(--text);color:var(--bg);border-color:var(--text)}
+.brand-pill.p-MI{background:var(--mi);color:#fff;border-color:var(--mi)}
+.brand-pill.p-NB{background:var(--nb);color:#fff;border-color:var(--nb)}
+.brand-pill.p-DS{background:var(--ds);color:#fff;border-color:var(--ds)}
+/* Table */
+.dt{width:100%;border-collapse:collapse;font-size:12px}
+.dt th{text-align:left;padding:8px 10px;border-bottom:.5px solid var(--border2);color:var(--text3);font-weight:500;white-space:nowrap;cursor:pointer;user-select:none;background:var(--bg2)}
+.dt th:hover{color:var(--text)}
+.dt th.asc::after{content:' ↑'}.dt th.desc::after{content:' ↓'}
+.dt td{padding:7px 10px;border-bottom:.5px solid var(--border);vertical-align:middle}
+.dt tr:last-child td{border-bottom:none}
+.dt tr:hover td{background:var(--bg2)}
+/* Badge */
+.badge{font-size:11px;padding:2px 8px;border-radius:5px;font-weight:600;white-space:nowrap}
+.b-MI{background:#deeaf7;color:#185FA5}.b-NB{background:#d6ede5;color:#0F6E56}.b-DS{background:#f5e0d7;color:#993C1D}
+@media(prefers-color-scheme:dark){.b-MI{background:#0c3460;color:#85B7EB}.b-NB{background:#073826;color:#5DCAA5}.b-DS{background:#4a1b0c;color:#F0997B}}
+/* Change pill */
+.chg{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:5px;font-weight:600;font-size:12px;white-space:nowrap}
+.chg-up{background:#e8f5d6;color:var(--up)}.chg-dn{background:#fce8e8;color:var(--dn)}.chg-na{color:var(--text3);font-size:12px}
+@media(prefers-color-scheme:dark){.chg-up{background:#1a3a08;color:#7fc442}.chg-dn{background:#3d0c0c;color:#f08080}}
+/* Waterfall bar */
+.bar-wrap{display:flex;align-items:center;gap:6px;width:160px}
+.bar-track{flex:1;height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;position:relative}
+.bar-fill{height:100%;border-radius:4px;transition:width .3s}
+.bar-val{font-size:11px;color:var(--text2);white-space:nowrap;min-width:44px;text-align:right}
+/* Sparkline */
+canvas.spark{display:block}
+/* Clickable ASIN */
+.asin-link{cursor:pointer;color:var(--mi);font-family:monospace;font-size:11px}
+.asin-link:hover{text-decoration:underline}
+/* Title cell */
+.title-cell{max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Search */
+.search-wrap{position:relative;margin-bottom:16px}
+.search-row{display:flex;gap:8px}
+.search-input{flex:1;padding:10px 14px;border:.5px solid var(--border2);border-radius:var(--radius);background:var(--bg);color:var(--text);font-size:14px;outline:none;font-family:inherit}
+.search-input:focus{border-color:var(--mi);box-shadow:0 0 0 2px rgba(24,95,165,.15)}
+.search-btn{padding:10px 16px;border:.5px solid var(--border);border-radius:var(--radius);background:var(--bg2);color:var(--text2);cursor:pointer;font-size:13px;font-family:inherit}
+.suggest-box{position:absolute;top:calc(100%+4px);left:0;right:80px;background:var(--bg);border:.5px solid var(--border2);border-radius:var(--radius-lg);z-index:200;max-height:260px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.suggest-item{padding:10px 14px;cursor:pointer;border-bottom:.5px solid var(--border)}
+.suggest-item:last-child{border-bottom:none}
+.suggest-item:hover{background:var(--bg2)}
+.suggest-top{display:flex;align-items:center;gap:8px;margin-bottom:3px}
+.suggest-title-txt{font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* ASIN detail */
+.asin-hdr{background:var(--bg2);border-radius:var(--radius-lg);padding:14px 18px;margin-bottom:14px}
+.asin-title-row{display:flex;align-items:flex-start;gap:10px;margin-bottom:6px;flex-wrap:wrap}
+.asin-title{font-size:14px;font-weight:500;line-height:1.5;flex:1}
+.asin-meta{font-size:12px;color:var(--text3);font-family:monospace}
+.tab-group{display:flex;gap:4px;background:var(--bg2);padding:3px;border-radius:var(--radius);margin-bottom:16px;width:fit-content}
+.tab-btn{font-size:12px;padding:5px 14px;border-radius:6px;cursor:pointer;color:var(--text2);border:none;background:transparent;font-family:inherit}
+.tab-btn.active{background:var(--bg);color:var(--text);font-weight:500;border:.5px solid var(--border)}
+.placeholder{text-align:center;padding:48px 0;color:var(--text3)}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+@media(max-width:768px){
+  .topbar{padding:0 12px}.content{padding:12px}
+  .four-col{grid-template-columns:repeat(2,1fr)}
+  .two-col{grid-template-columns:1fr}
+  .nav-tab{padding:0 10px;font-size:12px}
+  .bar-wrap{width:100px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="logo">📊 Brand Dashboard</div>
+    <div class="nav-tabs">
+      <div class="nav-tab active" onclick="showPage('overview',this)">總覽</div>
+      <div class="nav-tab" onclick="showPage('trend',this)">趨勢排行</div>
+      <div class="nav-tab" onclick="showPage('rank',this)">銷量排行</div>
+      <div class="nav-tab" onclick="showPage('asin',this)">ASIN 查詢</div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ① OVERVIEW -->
+    <div id="page-overview" class="page active">
+      <div class="four-col" id="ovMetrics"></div>
+      <div class="tab-group" id="ovTabs">
+        <button class="tab-btn active" onclick="setOvRange(this,'recent')">近 12 個月</button>
+        <button class="tab-btn" onclick="setOvRange(this,'2024')">2024</button>
+        <button class="tab-btn" onclick="setOvRange(this,'all')">全部</button>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">
+          <span>月度銷售額（三品牌）</span>
+          <div class="legend">
+            <span class="legend-item"><span class="legend-dot" style="background:var(--mi)"></span>MI</span>
+            <span class="legend-item"><span class="legend-dot" style="background:var(--nb)"></span>NB</span>
+            <span class="legend-item"><span class="legend-dot" style="background:var(--ds)"></span>DS</span>
+          </div>
+        </div>
+        <div style="position:relative;height:280px"><canvas id="ovSalesC"></canvas></div>
+      </div>
+      <div class="two-col">
+        <div class="chart-card">
+          <div class="chart-title"><span id="pieTitle">最新月銷售占比</span></div>
+          <div style="position:relative;height:200px"><canvas id="pieC"></canvas></div>
+          <div class="legend" style="justify-content:center;margin-top:10px">
+            <span class="legend-item"><span class="legend-dot" style="background:var(--mi)"></span>MI</span>
+            <span class="legend-item"><span class="legend-dot" style="background:var(--nb)"></span>NB</span>
+            <span class="legend-item"><span class="legend-dot" style="background:var(--ds)"></span>DS</span>
+          </div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title"><span>YoY 銷售成長率（%）</span></div>
+          <div style="position:relative;height:200px"><canvas id="yoyC"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ② TREND RANK PAGE -->
+    <div id="page-trend" class="page">
+
+      <div class="four-col" id="trendMetrics" style="margin-bottom:14px"></div>
+
+      <div class="controls">
+        <div>
+          <span class="ctrl-label">指標&nbsp;</span>
+          <select class="ctrl-select" id="trendMetric" onchange="buildTrend()">
+            <option value="units">銷售量（件）</option>
+            <option value="total_sales">銷售額（$）</option>
+          </select>
+        </div>
+        <div>
+          <span class="ctrl-label">月份數&nbsp;</span>
+          <select class="ctrl-select" id="trendMonths" onchange="buildTrend()">
+            <option value="4">最近 4 個月</option>
+            <option value="6" selected>最近 6 個月</option>
+            <option value="9">最近 9 個月</option>
+            <option value="12">最近 12 個月</option>
+          </select>
+        </div>
+        <div>
+          <span class="ctrl-label">排序&nbsp;</span>
+          <select class="ctrl-select" id="trendSort" onchange="buildTrend()">
+            <option value="latest">最新月數值（高→低）</option>
+            <option value="growth">成長幅度（MoM % 高→低）</option>
+            <option value="decline">衰退幅度（MoM % 低→高）</option>
+            <option value="abs_growth">絕對成長量（高→低）</option>
+            <option value="abs_decline">絕對衰退量（低→高）</option>
+          </select>
+        </div>
+        <div>
+          <span class="ctrl-label">顯示&nbsp;</span>
+          <select class="ctrl-select" id="trendTop" onchange="buildTrend()">
+            <option value="30">Top 30</option>
+            <option value="50">Top 50</option>
+            <option value="999">全部</option>
+          </select>
+        </div>
+        <div class="brand-pills" id="trendPills">
+          <button class="brand-pill p-ALL" onclick="setTrendBrand('ALL',this)">全部</button>
+          <button class="brand-pill" onclick="setTrendBrand('MI',this)">MI</button>
+          <button class="brand-pill" onclick="setTrendBrand('NB',this)">NB</button>
+          <button class="brand-pill" onclick="setTrendBrand('DS',this)">DS</button>
+        </div>
+      </div>
+
+      <div class="chart-card" style="padding:0;overflow:hidden">
+        <div style="overflow-x:auto">
+          <table class="dt" id="trendTable">
+            <thead id="trendThead"></thead>
+            <tbody id="trendBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style="background:var(--bg2);border:.5px solid var(--border);border-radius:var(--radius-lg);padding:12px 16px;margin-top:12px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:8px;height:8px;border-radius:50%;background:#888780;flex-shrink:0" id="ghDot"></div>
+          <span style="font-size:12px;color:var(--text2);flex:1" id="ghStatus">尚未連線 · 備註需要 GitHub 設定才能共用</span>
+          <button onclick="toggleGhPanel()" style="font-size:11px;padding:3px 10px;border-radius:6px;border:.5px solid var(--border);background:var(--bg);color:var(--text2);cursor:pointer;font-family:inherit" id="ghToggleBtn">設定</button>
+        </div>
+        <div id="ghPanel" style="display:none;margin-top:10px;display:none">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:7px">
+            <input id="ghOwner" placeholder="GitHub 帳號 (owner)" style="padding:6px 10px;border:.5px solid var(--border2);border-radius:6px;background:var(--bg);color:var(--text);font-size:12px;font-family:inherit;outline:none"/>
+            <input id="ghRepo" placeholder="Repo 名稱" style="padding:6px 10px;border:.5px solid var(--border2);border-radius:6px;background:var(--bg);color:var(--text);font-size:12px;font-family:inherit;outline:none"/>
+          </div>
+          <div style="display:flex;gap:7px">
+            <input id="ghToken" type="password" placeholder="Personal Access Token（repo 權限）" style="flex:1;padding:6px 10px;border:.5px solid var(--border2);border-radius:6px;background:var(--bg);color:var(--text);font-size:12px;font-family:inherit;outline:none"/>
+            <button onclick="saveGHSettings()" style="padding:6px 14px;border-radius:6px;background:var(--mi);color:#fff;font-size:12px;font-family:inherit;border:none;cursor:pointer;white-space:nowrap">儲存連線</button>
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-top:5px">Token 只存在你的瀏覽器，不會上傳</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Comment Drawer -->
+    <div id="commentDrawer" style="display:none;position:fixed;inset:0;z-index:500;display:none">
+      <div onclick="closeDrawer()" style="position:absolute;inset:0;background:rgba(0,0,0,.35)"></div>
+      <div style="position:absolute;right:0;top:0;bottom:0;width:420px;max-width:95vw;background:var(--bg);display:flex;flex-direction:column;border-left:.5px solid var(--border2)">
+        <div style="padding:16px 20px;border-bottom:.5px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+              <span class="badge" id="drawerBadge"></span>
+              <span style="font-family:monospace;font-size:12px;color:var(--text3)" id="drawerAsin"></span>
+            </div>
+            <div style="font-size:12px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="drawerTitle"></div>
+          </div>
+          <button onclick="closeDrawer()" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--text3);padding:0;line-height:1;flex-shrink:0">✕</button>
+        </div>
+        <div id="threadList" style="flex:1;overflow-y:auto;padding:12px 20px;display:flex;flex-direction:column;gap:0"></div>
+        <div style="border-top:.5px solid var(--border);padding:14px 20px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <div id="composeAvatar" style="width:28px;height:28px;border-radius:50%;background:#E6F1FB;color:#0C447C;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;flex-shrink:0">?</div>
+            <input id="authorInput" placeholder="你的名字" style="width:110px;padding:5px 9px;border:.5px solid var(--border2);border-radius:6px;background:var(--bg);color:var(--text);font-size:12px;font-family:inherit;outline:none" oninput="onAuthorInput()"/>
+            <span style="font-size:11px;color:var(--text3)">· <span id="drawerMonth"></span></span>
+          </div>
+          <textarea id="composeText" placeholder="觀察、原因、行動計畫..." style="width:100%;height:72px;padding:9px 12px;border:.5px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text);font-size:12px;font-family:inherit;resize:none;outline:none;line-height:1.5" oninput="onComposeInput()"></textarea>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+            <span style="font-size:11px;color:var(--text3)" id="composeCount">0 / 500</span>
+            <button id="postBtn" onclick="postComment()" disabled style="padding:6px 16px;border-radius:7px;background:#185FA5;color:#fff;font-size:12px;font-family:inherit;border:none;cursor:pointer;font-weight:500;opacity:.4">發佈</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ③ RANK PAGE -->
+    <div id="page-rank" class="page">
+      <div class="controls">
+        <div><span class="ctrl-label">月份&nbsp;</span><select class="ctrl-select" id="rankMonth" onchange="buildRank()"></select></div>
+        <div><span class="ctrl-label">排序&nbsp;</span>
+          <select class="ctrl-select" id="rankMetric" onchange="buildRank()">
+            <option value="units">銷售量</option>
+            <option value="total_sales">銷售額</option>
+            <option value="spend">廣告花費</option>
+            <option value="acos">ACOS</option>
+          </select>
+        </div>
+        <div><span class="ctrl-label">顯示&nbsp;</span>
+          <select class="ctrl-select" id="rankTop" onchange="buildRank()">
+            <option value="30">Top 30</option><option value="50">Top 50</option><option value="999">全部</option>
+          </select>
+        </div>
+        <div class="brand-pills" id="rankPills">
+          <button class="brand-pill p-ALL" onclick="setRankBrand('ALL',this)">全部</button>
+          <button class="brand-pill" onclick="setRankBrand('MI',this)">MI</button>
+          <button class="brand-pill" onclick="setRankBrand('NB',this)">NB</button>
+          <button class="brand-pill" onclick="setRankBrand('DS',this)">DS</button>
+        </div>
+      </div>
+      <div class="chart-card" style="padding:0;overflow:hidden">
+        <div style="overflow-x:auto">
+          <table class="dt">
+            <thead><tr>
+              <th style="width:28px;padding-left:12px">#</th>
+              <th>ASIN</th><th>品牌</th><th>產品</th>
+              <th id="rth-units" onclick="setRankSort('units')">銷售量</th>
+              <th id="rth-mom_units">銷量 MoM</th>
+              <th id="rth-total_sales" onclick="setRankSort('total_sales')">銷售額</th>
+              <th id="rth-mom_sales">銷售額 MoM</th>
+              <th id="rth-spend" onclick="setRankSort('spend')">廣告花費</th>
+              <th id="rth-acos" onclick="setRankSort('acos')">ACOS</th>
+              <th>走勢（6M）</th>
+            </tr></thead>
+            <tbody id="rankBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ④ ASIN -->
+    <div id="page-asin" class="page">
+      <div class="search-wrap">
+        <div class="search-row">
+          <input class="search-input" id="asinInput" placeholder="輸入 ASIN 或產品關鍵字..." autocomplete="off"/>
+          <button class="search-btn" onclick="clearAsin()">清除</button>
+        </div>
+        <div class="suggest-box" id="suggestBox" style="display:none"></div>
+      </div>
+      <div id="asinContent">
+        <div class="placeholder">
+          <div style="font-size:36px;opacity:.3;margin-bottom:12px">🔍</div>
+          <div>輸入 ASIN 或關鍵字搜尋</div>
+          <div style="font-size:12px;margin-top:6px;color:var(--text3)">共 <span id="totalCount">0</span> 個 ASIN</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* __DATA_PLACEHOLDER__ */
+</script>
+<script>
+const ASINS=DASHBOARD_DATA.asins, BS=DASHBOARD_DATA.brand_summary;
+const MI_C='#185FA5',NB_C='#0F6E56',DS_C='#993C1D';
+const BC={MI:MI_C,NB:NB_C,DS:DS_C};
+function nm(m){const p=m.split('-');return p[0]+'-'+p[1].padStart(2,'0');}
+const BSN={};
+for(const b of['MI','NB','DS']){BSN[b]={};for(const[m,v]of Object.entries(BS[b]||{}))BSN[b][nm(m)]=v;}
+const SORTED_BS=[...new Set(Object.values(BSN).flatMap(b=>Object.keys(b)))].sort();
+const ALL_MO=[...new Set(Object.values(ASINS).flatMap(d=>Object.keys(d.months)))].sort();
+
+// ── helpers ──
+function f$(v){if(v==null||isNaN(v))return'–';if(Math.abs(v)>=1e6)return'$'+(v/1e6).toFixed(2)+'M';if(Math.abs(v)>=1e3)return'$'+(v/1e3).toFixed(1)+'K';return'$'+Math.round(v).toLocaleString();}
+function fN(v){if(v==null||isNaN(v))return'–';if(v>=1e6)return(v/1e6).toFixed(2)+'M';if(v>=1e3)return(v/1e3).toFixed(1)+'K';return Math.round(v).toLocaleString();}
+function ps(a,b){if(!a||!b||a===0)return'<span class="neutral">–</span>';const p=(b-a)/Math.abs(a)*100;return`<span class="${p>=0?'up':'down'}">${p>=0?'+':''}${p.toFixed(1)}%</span>`;}
+function prevMo(m){const[y,mo]=m.split('-').map(Number);return mo===1?`${y-1}-12`:`${y}-${String(mo-1).padStart(2,'0')}`;}
+function chgPill(a,b){if(a==null||b==null||a===0)return'<span class="chg-na">–</span>';const p=(b-a)/Math.abs(a)*100;const up=p>=0;return`<span class="chg ${up?'chg-up':'chg-dn'}">${up?'▲':'▼'} ${Math.abs(p).toFixed(1)}%</span>`;}
+function absDiffStr(a,b,isUnits){if(a==null||b==null)return'–';const d=b-a;const s=d>=0?'+':'';return isUnits?s+fN(d):s+f$(d);}
+
+// Sparkline canvas
+function spark(vals,color,w=72,h=26){
+  const clean=vals.filter(v=>v!=null);
+  if(clean.length<2)return'<span style="color:var(--text3);font-size:10px">–</span>';
+  const c=document.createElement('canvas');c.width=w;c.height=h;c.className='spark';
+  const ctx=c.getContext('2d');
+  const mn=Math.min(...clean),mx=Math.max(...clean),rng=mx-mn||1;
+  const pts=vals.map((v,i)=>[2+i*(w-4)/(vals.length-1),h-2-(((v??mn)-mn)/rng)*(h-4)]);
+  ctx.strokeStyle=color;ctx.lineWidth=1.5;ctx.lineJoin='round';
+  ctx.beginPath();let first=true;
+  pts.forEach(([x,y],i)=>{if(vals[i]==null)return;if(first){ctx.moveTo(x,y);first=false;}else ctx.lineTo(x,y);});
+  ctx.stroke();
+  const lp=pts.filter((_,i)=>vals[i]!=null).pop();
+  if(lp){ctx.fillStyle=color;ctx.beginPath();ctx.arc(lp[0],lp[1],2.5,0,Math.PI*2);ctx.fill();}
+  return c.outerHTML;
+}
+
+// ── NAV ──
+function showPage(id,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');el.classList.add('active');
+  if(id==='trend'&&!trendInit)initTrend();
+  if(id==='rank'&&!rankInit)initRankPage();
+}
+
+// ── OVERVIEW ──
+let ovSI=null,pieI=null,yoyI=null;
+function initOverview(){
+  const last=SORTED_BS[SORTED_BS.length-1],prev=SORTED_BS[SORTED_BS.length-2];
+  const ml=v=>BSN[v][last]||0,mp=v=>BSN[v][prev]||0;
+  const tot=ml('MI')+ml('NB')+ml('DS'),totp=mp('MI')+mp('NB')+mp('DS');
+  document.getElementById('ovMetrics').innerHTML=['','MI','NB','DS'].map((b,i)=>{
+    const v=i===0?tot:ml(b),vp=i===0?totp:mp(b),lbl=i===0?`總銷售（${last}）`:`${b}（${last}）`;
+    return`<div class="mcard"><div class="mcard-label">${lbl}</div><div class="mcard-val">${f$(v)}</div><div class="mcard-sub">${ps(vp,v)} vs ${prev}</div></div>`;
+  }).join('');
+  document.getElementById('pieTitle').textContent=last+' 銷售占比';
+  if(pieI)pieI.destroy();
+  const[ml2,nl2,dl2]=[ml('MI'),ml('NB'),ml('DS')];
+  pieI=new Chart(document.getElementById('pieC'),{type:'doughnut',data:{labels:['MI','NB','DS'],datasets:[{data:[ml2,nl2,dl2],backgroundColor:[MI_C,NB_C,DS_C],borderWidth:0,hoverOffset:4}]},options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.label+': '+f$(ctx.parsed)+' ('+(ctx.parsed/tot*100).toFixed(1)+'%)'}}}}});
+  buildOvCharts('recent');
+}
+function setOvRange(btn,r){document.querySelectorAll('#ovTabs .tab-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');buildOvCharts(r);}
+function buildOvCharts(r){
+  const mos=r==='recent'?SORTED_BS.slice(-12):r==='2024'?SORTED_BS.filter(m=>m.startsWith('2024')):SORTED_BS;
+  const labs=mos.map(m=>m.replace('20','').replace('-0','-'));
+  if(ovSI)ovSI.destroy();
+  ovSI=new Chart(document.getElementById('ovSalesC'),{type:'line',data:{labels:labs,datasets:[{label:'MI',data:mos.map(m=>BSN.MI[m]||null),borderColor:MI_C,borderWidth:2.5,pointRadius:3,tension:0.3,fill:false},{label:'NB',data:mos.map(m=>BSN.NB[m]||null),borderColor:NB_C,borderWidth:2,pointRadius:2,tension:0.3,fill:false,borderDash:[6,3]},{label:'DS',data:mos.map(m=>BSN.DS[m]||null),borderColor:DS_C,borderWidth:2,pointRadius:2,tension:0.3,fill:false,borderDash:[2,3]}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+f$(ctx.parsed.y)}}},scales:{x:{ticks:{font:{size:11},maxRotation:45},grid:{display:false}},y:{ticks:{font:{size:11},callback:v=>v>=1e6?'$'+(v/1e6).toFixed(0)+'M':'$'+(v/1e3).toFixed(0)+'K'},grid:{color:'rgba(128,128,128,0.08)'}}}}});
+  const rm=SORTED_BS.slice(-6);const yl=[],ymi=[],ynb=[],yds=[];
+  for(const m of rm){const[yr,mo]=m.split('-');const py=String(parseInt(yr)-1)+'-'+mo;if(BSN.MI[py]){yl.push(m.replace('20','').replace('-0','-'));ymi.push(((BSN.MI[m]||0)/BSN.MI[py]-1)*100);ynb.push(BSN.NB[py]?((BSN.NB[m]||0)/BSN.NB[py]-1)*100:null);yds.push(BSN.DS[py]?((BSN.DS[m]||0)/BSN.DS[py]-1)*100:null);}}
+  if(yoyI)yoyI.destroy();
+  yoyI=new Chart(document.getElementById('yoyC'),{type:'bar',data:{labels:yl,datasets:[{label:'MI',data:ymi,backgroundColor:MI_C+'aa'},{label:'NB',data:ynb,backgroundColor:NB_C+'aa'},{label:'DS',data:yds,backgroundColor:DS_C+'aa'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{font:{size:11},boxWidth:10,padding:10}},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+(ctx.parsed.y!=null?ctx.parsed.y.toFixed(1)+'%':'–')}}},scales:{x:{ticks:{font:{size:11}},grid:{display:false}},y:{ticks:{font:{size:11},callback:v=>v.toFixed(0)+'%'},grid:{color:'rgba(128,128,128,0.08)'}}}}});
+}
+
+// ── COMMENT SYSTEM ──
+let COMMENTS={};
+let GH_OWNER='',GH_REPO='',GH_TOKEN='',GH_FILE_SHA='';
+const LS='brd_gh_';
+
+function loadGHSettings(){
+  GH_OWNER=localStorage.getItem(LS+'owner')||'';
+  GH_REPO=localStorage.getItem(LS+'repo')||'';
+  GH_TOKEN=localStorage.getItem(LS+'token')||'';
+  const savedAuthor=localStorage.getItem(LS+'author')||'';
+  if(savedAuthor){const ai=document.getElementById('authorInput');if(ai){ai.value=savedAuthor;onAuthorInput();}}
+}
+function saveGHSettings(){
+  GH_OWNER=document.getElementById('ghOwner').value.trim();
+  GH_REPO=document.getElementById('ghRepo').value.trim();
+  GH_TOKEN=document.getElementById('ghToken').value.trim();
+  localStorage.setItem(LS+'owner',GH_OWNER);
+  localStorage.setItem(LS+'repo',GH_REPO);
+  localStorage.setItem(LS+'token',GH_TOKEN);
+  fetchComments();
+  toggleGhPanel();
+}
+function toggleGhPanel(){
+  const p=document.getElementById('ghPanel');
+  const showing=p.style.display==='block';
+  p.style.display=showing?'none':'block';
+  document.getElementById('ghToggleBtn').textContent=showing?'設定':'收起';
+  if(!showing){
+    const el=document.getElementById('ghOwner');
+    if(el&&GH_OWNER)el.value=GH_OWNER;
+    const el2=document.getElementById('ghRepo');
+    if(el2&&GH_REPO)el2.value=GH_REPO;
+    const el3=document.getElementById('ghToken');
+    if(el3&&GH_TOKEN)el3.value=GH_TOKEN;
+  }
+}
+async function fetchComments(){
+  if(!GH_OWNER||!GH_REPO||!GH_TOKEN){setGHStatus('⚠️ 請先設定 GitHub');setGHDot(false);return;}
+  setGHStatus('載入中...');
+  try{
+    const r=await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/data/comments.json`,
+      {headers:{Authorization:'token '+GH_TOKEN,Accept:'application/vnd.github.v3+json'}});
+    if(r.status===404){COMMENTS={};GH_FILE_SHA='';setGHStatus('已連線 · 尚無備註');setGHDot(true);return;}
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const j=await r.json();
+    GH_FILE_SHA=j.sha;
+    COMMENTS=JSON.parse(atob(j.content.replace(/\n/g,'')));
+    const total=Object.values(COMMENTS).reduce((s,a)=>s+(Array.isArray(a)?a.length:0),0);
+    setGHStatus('已連線 · '+total+' 則備註');
+    setGHDot(true);
+    if(document.getElementById('page-trend').classList.contains('active'))buildTrend();
+  }catch(e){setGHStatus('連線錯誤：'+e.message);setGHDot(false);}
+}
+async function saveComments(){
+  if(!GH_OWNER||!GH_REPO||!GH_TOKEN)return false;
+  const content=btoa(unescape(encodeURIComponent(JSON.stringify(COMMENTS,null,2))));
+  const body={message:'chore: update comments [skip ci]',content};
+  if(GH_FILE_SHA)body.sha=GH_FILE_SHA;
+  try{
+    const r=await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/data/comments.json`,
+      {method:'PUT',headers:{Authorization:'token '+GH_TOKEN,'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const j=await r.json();
+    GH_FILE_SHA=j.content.sha;
+    const total=Object.values(COMMENTS).reduce((s,a)=>s+(Array.isArray(a)?a.length:0),0);
+    setGHStatus('已連線 · '+total+' 則備註');
+    return true;
+  }catch(e){alert('儲存失敗：'+e.message);return false;}
+}
+function setGHStatus(msg){const el=document.getElementById('ghStatus');if(el)el.textContent=msg;}
+function setGHDot(on){const el=document.getElementById('ghDot');if(el)el.style.background=on?'#639922':'#888780';}
+
+// ── DRAWER (thread per ASIN) ──
+let drawerAsin='',drawerBrand='';
+const AVATAR_COLORS=[
+  ['#deeaf7','#0C447C'],['#d6ede5','#085041'],['#FAEEDA','#633806'],
+  ['#EEEDFE','#3C3489'],['#fce8e8','#791F1F'],['#E1F5EE','#085041']
+];
+function avatarColor(name){
+  let h=0;for(let i=0;i<name.length;i++)h=(h*31+name.charCodeAt(i))%AVATAR_COLORS.length;
+  return AVATAR_COLORS[Math.abs(h)%AVATAR_COLORS.length];
+}
+function avatarHtml(name,size=26){
+  const initials=name.trim().substring(0,2).toUpperCase()||'?';
+  const[bg,fg]=avatarColor(name.trim()||'?');
+  return`<div class="thread-avatar" style="width:${size}px;height:${size}px;background:${bg};color:${fg}">${initials}</div>`;
+}
+
+function openDrawer(asin,title,brand){
+  drawerAsin=asin;drawerBrand=brand||'MI';
+  document.getElementById('drawerBadge').textContent=brand;
+  document.getElementById('drawerBadge').className='badge b-'+brand;
+  document.getElementById('drawerAsin').textContent=asin;
+  document.getElementById('drawerTitle').textContent=title;
+  const lastMo=ALL_MO[ALL_MO.length-1];
+  document.getElementById('drawerMonth').textContent='月份：'+lastMo;
+  document.getElementById('composeText').value='';
+  document.getElementById('composeCount').textContent='0 / 500';
+  document.getElementById('postBtn').disabled=true;
+  document.getElementById('postBtn').style.opacity='0.4';
+  renderThread();
+  document.getElementById('commentDrawer').style.display='block';
+  document.body.style.overflow='hidden';
+}
+function closeDrawer(){
+  document.getElementById('commentDrawer').style.display='none';
+  document.body.style.overflow='';
+  buildTrend();
+}
+function renderThread(){
+  const msgs=COMMENTS[drawerAsin]||[];
+  const list=document.getElementById('threadList');
+  if(!msgs.length){list.innerHTML='<div style="text-align:center;padding:32px 0;color:var(--text3);font-size:12px">還沒有備註，成為第一個留言的人</div>';return;}
+  let html='';let lastMonth='';
+  msgs.forEach((m,idx)=>{
+    if(m.month!==lastMonth){
+      html+=`<div class="thread-divider"><div class="thread-divider-line"></div><div class="thread-divider-label">${m.month}</div><div class="thread-divider-line"></div></div>`;
+      lastMonth=m.month;
+    }
+    const bodyId=`msg-body-${idx}`,editId=`msg-edit-${idx}`;
+    html+=`<div class="thread-msg" id="thread-msg-${idx}">
+      ${avatarHtml(m.author)}
+      <div class="thread-bubble" style="min-width:0;flex:1">
+        <div class="thread-bubble-hdr">
+          <span class="thread-author">${m.author}</span>
+          <span class="thread-month-tag">${m.month}</span>
+          <span class="thread-ts">${m.date}${m.edited?' · 已編輯':''}</span>
+          <span style="margin-left:auto;display:flex;gap:4px;flex-shrink:0">
+            <button onclick="startEdit(${idx})" style="font-size:10px;padding:1px 7px;border-radius:4px;border:.5px solid var(--border);background:none;color:var(--text3);cursor:pointer;font-family:inherit" title="編輯">編輯</button>
+            <button onclick="deleteMsg(${idx})" style="font-size:10px;padding:1px 7px;border-radius:4px;border:.5px solid var(--border);background:none;color:var(--dn);cursor:pointer;font-family:inherit" title="刪除">刪除</button>
+          </span>
+        </div>
+        <div id="${bodyId}" class="thread-body">${m.text.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/
+/g,'<br>')}</div>
+        <div id="${editId}" style="display:none;margin-top:6px">
+          <textarea style="width:100%;padding:8px;border:.5px solid var(--border2);border-radius:7px;background:var(--bg);color:var(--text);font-size:12px;font-family:inherit;resize:none;outline:none;height:68px">${m.text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+          <div style="display:flex;justify-content:flex-end;gap:6px;margin-top:5px">
+            <button onclick="cancelEdit(${idx})" style="font-size:11px;padding:4px 12px;border-radius:6px;border:.5px solid var(--border);background:var(--bg2);color:var(--text2);cursor:pointer;font-family:inherit">取消</button>
+            <button onclick="saveEdit(${idx})" style="font-size:11px;padding:4px 12px;border-radius:6px;background:#185FA5;color:#fff;border:none;cursor:pointer;font-family:inherit">儲存</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  });
+  list.innerHTML=html;
+  list.scrollTop=list.scrollHeight;
+}
+function startEdit(idx){
+  document.getElementById(`msg-body-${idx}`).style.display='none';
+  document.getElementById(`msg-edit-${idx}`).style.display='block';
+  const ta=document.getElementById(`msg-edit-${idx}`).querySelector('textarea');
+  ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length);
+}
+function cancelEdit(idx){
+  document.getElementById(`msg-body-${idx}`).style.display='block';
+  document.getElementById(`msg-edit-${idx}`).style.display='none';
+}
+async function saveEdit(idx){
+  const ta=document.getElementById(`msg-edit-${idx}`).querySelector('textarea');
+  const newText=ta.value.trim();
+  if(!newText)return;
+  COMMENTS[drawerAsin][idx].text=newText;
+  COMMENTS[drawerAsin][idx].edited=true;
+  renderThread();
+  if(GH_OWNER&&GH_REPO&&GH_TOKEN){setGHStatus('儲存中...');await saveComments();}
+}
+async function deleteMsg(idx){
+  if(!confirm('確定刪除這則留言？'))return;
+  COMMENTS[drawerAsin].splice(idx,1);
+  if(COMMENTS[drawerAsin].length===0)delete COMMENTS[drawerAsin];
+  renderThread();
+  buildTrend();
+  if(GH_OWNER&&GH_REPO&&GH_TOKEN){setGHStatus('儲存中...');await saveComments();}
+}
+function onAuthorInput(){
+  const name=document.getElementById('authorInput').value.trim();
+  const av=document.getElementById('composeAvatar');
+  const initials=name.substring(0,2).toUpperCase()||'?';
+  const[bg,fg]=avatarColor(name||'?');
+  av.textContent=initials;av.style.background=bg;av.style.color=fg;
+  localStorage.setItem(LS+'author',name);
+  onComposeInput();
+}
+function onComposeInput(){
+  const text=document.getElementById('composeText').value;
+  const name=document.getElementById('authorInput').value.trim();
+  document.getElementById('composeCount').textContent=text.length+' / 500';
+  const ok=text.trim().length>0&&name.length>0;
+  document.getElementById('postBtn').disabled=!ok;
+  document.getElementById('postBtn').style.opacity=ok?'1':'0.4';
+}
+async function postComment(){
+  const author=document.getElementById('authorInput').value.trim();
+  const text=document.getElementById('composeText').value.trim();
+  if(!author||!text)return;
+  const lastMo=ALL_MO[ALL_MO.length-1];
+  const now=new Date();
+  const date=(now.getMonth()+1).toString().padStart(2,'0')+'/'+now.getDate().toString().padStart(2,'0');
+  const entry={author,month:lastMo,date,text,ts:now.toISOString()};
+  if(!COMMENTS[drawerAsin])COMMENTS[drawerAsin]=[];
+  COMMENTS[drawerAsin].push(entry);
+  renderThread();
+  document.getElementById('composeText').value='';
+  document.getElementById('composeCount').textContent='0 / 500';
+  document.getElementById('postBtn').disabled=true;
+  document.getElementById('postBtn').style.opacity='0.4';
+  if(GH_OWNER&&GH_REPO&&GH_TOKEN){
+    setGHStatus('儲存中...');
+    await saveComments();
+  }
+}
+
+// ── TREND RANK ──
+let trendInit=false,trendBrand='ALL';
+function initTrend(){
+  trendInit=true;
+  loadGHSettings();
+  if(GH_OWNER&&GH_REPO&&GH_TOKEN){
+    document.getElementById('ghOwner').value=GH_OWNER;
+    document.getElementById('ghRepo').value=GH_REPO;
+    document.getElementById('ghToken').value=GH_TOKEN;
+    fetchComments();
+  }
+  buildTrend();
+}
+function setTrendBrand(b,el){
+  trendBrand=b;
+  document.querySelectorAll('#trendPills button').forEach(p=>{p.className='brand-pill';});
+  el.className='brand-pill p-'+b;
+  buildTrend();
+}
+
+function buildTrend(){
+  const metric=document.getElementById('trendMetric').value;
+  const nMonths=parseInt(document.getElementById('trendMonths').value);
+  const sortBy=document.getElementById('trendSort').value;
+  const topN=parseInt(document.getElementById('trendTop').value);
+  const isUnits=metric==='units';
+  const hLabel=isUnits?'銷售量':'銷售額';
+
+  // Pick the most recent N months available across all ASINs
+  const useMos=ALL_MO.slice(-nMonths);
+  const lastMo=useMos[useMos.length-1];
+  const prevLastMo=useMos[useMos.length-2];
+
+  // Build rows
+  let rows=Object.entries(ASINS)
+    .filter(([,d])=>(trendBrand==='ALL'||d.brand===trendBrand) && d.months[lastMo])
+    .map(([asin,d])=>{
+      const vals=useMos.map(m=>d.months[m]?.[metric]??null);
+      const cur=vals[vals.length-1];
+      const prv=vals[vals.length-2];
+      if(cur==null)return null;
+      const momPct=(prv&&prv!==0)?(cur-prv)/Math.abs(prv)*100:null;
+      const absDiff=prv!=null?cur-prv:null;
+      return{asin,brand:d.brand,title:d.title||'',vals,cur,prv,momPct,absDiff};
+    }).filter(Boolean);
+
+  // Summary cards
+  const withPrev=rows.filter(r=>r.prv!=null);
+  const gainers=withPrev.filter(r=>r.momPct>0).length;
+  const losers=withPrev.filter(r=>r.momPct<0).length;
+  const avgMoM=withPrev.length?withPrev.reduce((s,r)=>s+r.momPct,0)/withPrev.length:0;
+  document.getElementById('trendMetrics').innerHTML=`
+    <div class="mcard"><div class="mcard-label">最新月份</div><div class="mcard-val" style="font-size:15px">${prevLastMo||'–'} → ${lastMo}</div><div class="mcard-sub neutral">${rows.length} 個 ASIN</div></div>
+    <div class="mcard"><div class="mcard-label">📈 成長</div><div class="mcard-val" style="color:var(--up)">${gainers}</div><div class="mcard-sub neutral">${withPrev.length?(gainers/withPrev.length*100).toFixed(0):0}% of ASINs</div></div>
+    <div class="mcard"><div class="mcard-label">📉 衰退</div><div class="mcard-val" style="color:var(--dn)">${losers}</div><div class="mcard-sub neutral">${withPrev.length?(losers/withPrev.length*100).toFixed(0):0}% of ASINs</div></div>
+    <div class="mcard"><div class="mcard-label">平均 MoM</div><div class="mcard-val ${avgMoM>=0?'up':'down'}">${avgMoM>=0?'+':''}${avgMoM.toFixed(1)}%</div><div class="mcard-sub neutral">${hLabel}</div></div>`;
+
+  // Sort
+  rows.sort((a,b)=>{
+    if(sortBy==='latest')       return b.cur-a.cur;
+    if(sortBy==='growth')       return (b.momPct??-999)-(a.momPct??-999);
+    if(sortBy==='decline')      return (a.momPct??999)-(b.momPct??999);
+    if(sortBy==='abs_growth')   return (b.absDiff??-999999)-(a.absDiff??-999999);
+    if(sortBy==='abs_decline')  return (a.absDiff??999999)-(b.absDiff??999999);
+    return 0;
+  });
+  rows=rows.slice(0,topN);
+
+  // Build table header: fixed cols + one col per month
+  const moLabels=useMos.map(m=>m.replace('20','').replace('-0','-'));
+  document.getElementById('trendThead').innerHTML=`<tr>
+    <th style="width:28px;padding-left:12px">#</th>
+    <th>ASIN</th><th>品牌</th>
+    <th style="min-width:160px">產品名稱</th>
+    ${moLabels.map((l,i)=>`<th class="trend-cell" style="cursor:default">${l}</th>`).join('')}
+    <th>MoM</th>
+    <th>MoM 量</th>
+    <th>備註</th>
+  </tr>`;
+
+  // Build rows
+  document.getElementById('trendBody').innerHTML=rows.map((r,idx)=>{
+    const maxVal=Math.max(...r.vals.filter(v=>v!=null));
+    const commentArr=COMMENTS[r.asin]||[];
+    const commentCount=commentArr.length;
+    const lastComment=commentArr[commentArr.length-1]||null;
+
+    const moCells=r.vals.map((v,i)=>{
+      if(v==null)return'<td class="trend-cell" style="color:var(--text3)">–</td>';
+      const prev=r.vals[i-1];
+      const pct=prev&&prev!==0?(v-prev)/prev*100:null;
+      const barW=maxVal>0?Math.round(v/maxVal*100):0;
+      const barColor=pct==null?'var(--text3)':pct>0?'var(--up)':'var(--dn)';
+      const pctStr=pct!=null?`<div class="trend-mo-chg" style="color:${barColor}">${pct>=0?'▲':'▼'}${Math.abs(pct).toFixed(1)}%</div>`:'';
+      return`<td class="trend-cell">
+        <div class="trend-mo-val">${isUnits?fN(v):f$(v)}</div>
+        ${pctStr}
+        <div style="height:3px;background:var(--bg3);border-radius:2px;margin-top:3px"><div style="height:100%;width:${barW}%;background:${barColor};border-radius:2px;opacity:.7"></div></div>
+      </td>`;
+    }).join('');
+
+    return`<tr>
+      <td style="padding-left:12px;color:var(--text3);font-size:11px">${idx+1}</td>
+      <td class="asin-link" onclick="goAsin('${r.asin}')">${r.asin}</td>
+      <td><span class="badge b-${r.brand}">${r.brand}</span></td>
+      <td class="title-cell" title="${r.title}">${r.title.substring(0,38)}${r.title.length>38?'…':''}</td>
+      ${moCells}
+      <td>${chgPill(r.prv,r.cur)}</td>
+      <td style="font-size:11px;color:${(r.absDiff??0)>=0?'var(--up)':'var(--dn)'}">${r.absDiff!=null?(r.absDiff>=0?'+':'')+( isUnits?fN(r.absDiff):f$(r.absDiff)):'–'}</td>
+      <td style="min-width:130px">
+        <button onclick="openDrawer('${r.asin}','${r.title.replace(/'/g,String.fromCharCode(39)).replace(/"/g,'&quot;')}','${r.brand}')" style="font-size:11px;padding:3px 8px;border-radius:5px;border:.5px solid var(--border);background:var(--bg2);color:var(--text2);cursor:pointer;font-family:inherit">
+          ${commentCount>0?'💬 '+commentCount+' 則':'＋ 備註'}
+        ${lastComment?`<div style="font-size:10px;color:var(--text3);margin-top:3px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${lastComment.author}: ${lastComment.text.substring(0,30)}</div>`:''}
+        
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── RANK PAGE ──
+let rankInit=false,rankBrand='ALL',rankSort='units',rankDir='desc';
+function initRankPage(){
+  rankInit=true;
+  const sel=document.getElementById('rankMonth');
+  ALL_MO.slice().reverse().forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;sel.appendChild(o);});
+  buildRank();
+}
+function setRankBrand(b,el){rankBrand=b;document.querySelectorAll('#rankPills button').forEach(p=>{p.className='brand-pill';});el.className='brand-pill p-'+b;buildRank();}
+function setRankSort(col){if(rankSort===col)rankDir=rankDir==='desc'?'asc':'desc';else{rankSort=col;rankDir='desc';}document.getElementById('rankMetric').value=col;buildRank();}
+function buildRank(){
+  const month=document.getElementById('rankMonth').value;
+  rankSort=document.getElementById('rankMetric').value;
+  const topN=parseInt(document.getElementById('rankTop').value);
+  const pm=prevMo(month);
+  ['units','total_sales','spend','acos'].forEach(c=>{const th=document.getElementById('rth-'+c);if(th){th.className='';if(c===rankSort)th.className=rankDir;}});
+  let rows=Object.entries(ASINS)
+    .filter(([,d])=>(rankBrand==='ALL'||d.brand===rankBrand)&&d.months[month])
+    .map(([asin,d])=>{
+      const m=d.months[month]||{},mp=d.months[pm]||{};
+      const acos=m.spend&&m.ad_sales?m.spend/m.ad_sales:null;
+      const spark6=ALL_MO.slice(-8).map(mo=>d.months[mo]?.units??null);
+      return{asin,brand:d.brand,title:d.title||'',units:m.units??null,total_sales:m.total_sales??null,spend:m.spend??null,acos,pu:mp.units??null,ps2:mp.total_sales??null,spark6};
+    })
+    .filter(r=>r[rankSort]!=null)
+    .sort((a,b)=>rankDir==='desc'?(b[rankSort]??-Infinity)-(a[rankSort]??-Infinity):(a[rankSort]??Infinity)-(b[rankSort]??Infinity))
+    .slice(0,topN);
+  document.getElementById('rankBody').innerHTML=rows.map((r,i)=>`<tr>
+    <td style="padding-left:12px;color:var(--text3);font-size:11px">${i+1}</td>
+    <td class="asin-link" onclick="goAsin('${r.asin}')">${r.asin}</td>
+    <td><span class="badge b-${r.brand}">${r.brand}</span></td>
+    <td class="title-cell" title="${r.title}">${r.title.substring(0,50)}${r.title.length>50?'…':''}</td>
+    <td>${fN(r.units)}</td>
+    <td>${chgPill(r.pu,r.units)}</td>
+    <td>${f$(r.total_sales)}</td>
+    <td>${chgPill(r.ps2,r.total_sales)}</td>
+    <td>${f$(r.spend)}</td>
+    <td>${r.acos!=null?(r.acos*100).toFixed(1)+'%':'–'}</td>
+    <td>${spark(r.spark6,BC[r.brand])}</td>
+  </tr>`).join('');
+}
+
+// ── ASIN ──
+const asinInput=document.getElementById('asinInput'),suggestBox=document.getElementById('suggestBox');
+let scI=null,ucI=null,cvI=null,mmI=null;
+document.getElementById('totalCount').textContent=Object.keys(ASINS).length.toLocaleString();
+asinInput.addEventListener('input',()=>{
+  const q=asinInput.value.trim();if(q.length<2){suggestBox.style.display='none';return;}
+  const qu=q.toUpperCase();
+  const hits=Object.entries(ASINS).filter(([a,d])=>a.includes(qu)||(d.title||'').toUpperCase().includes(qu)).slice(0,10);
+  if(!hits.length){suggestBox.style.display='none';return;}
+  suggestBox.innerHTML=hits.map(([a,d])=>`<div class="suggest-item" onclick="selectAsin('${a}')"><div class="suggest-top"><span class="badge b-${d.brand}">${d.brand}</span><span style="font-size:12px;font-weight:600">${a}</span></div><div class="suggest-title-txt">${(d.title||'').substring(0,90)}</div></div>`).join('');
+  suggestBox.style.display='block';
+});
+asinInput.addEventListener('keydown',e=>{if(e.key==='Enter'){suggestBox.style.display='none';const q=asinInput.value.trim().toUpperCase();if(ASINS[q])renderAsin(q);}});
+document.addEventListener('click',e=>{if(!e.target.closest('.search-wrap'))suggestBox.style.display='none';});
+function selectAsin(a){asinInput.value=a;suggestBox.style.display='none';renderAsin(a);}
+function clearAsin(){asinInput.value='';suggestBox.style.display='none';document.getElementById('asinContent').innerHTML=`<div class="placeholder"><div style="font-size:36px;opacity:.3;margin-bottom:12px">🔍</div><div>輸入 ASIN 或關鍵字</div></div>`;}
+function goAsin(asin){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-asin').classList.add('active');
+  document.querySelectorAll('.nav-tab')[3].classList.add('active');
+  asinInput.value=asin;renderAsin(asin);window.scrollTo(0,0);
+}
+
+function renderAsin(asin){
+  const d=ASINS[asin];if(!d)return;
+  const bc=BC[d.brand];
+  const mos=ALL_MO.filter(m=>d.months[m]);
+  const latest=mos[mos.length-1],prev=mos[mos.length-2];
+  const lm=d.months[latest]||{},pm2=prev?d.months[prev]||{}:{};
+  const labs=mos.map(m=>m.replace('20','').replace('-0','-'));
+  const sD=mos.map(m=>d.months[m]?.total_sales??null);
+  const spD=mos.map(m=>d.months[m]?.spend??null);
+  const adD=mos.map(m=>d.months[m]?.ad_sales??null);
+  const uD=mos.map(m=>d.months[m]?.units??null);
+  const cD=mos.map(m=>d.months[m]?.cvr!=null?+(d.months[m].cvr*100).toFixed(2):null);
+  const gD=mos.map(m=>d.months[m]?.glance_views??null);
+  const acosL=lm.spend&&lm.ad_sales?lm.spend/lm.ad_sales:null;
+  const acosP=pm2.spend&&pm2.ad_sales?pm2.spend/pm2.ad_sales:null;
+
+  const tRows=mos.slice(-12).reverse().map((m,i,arr)=>{
+    const mo=d.months[m],p2=arr[i+1]?d.months[arr[i+1]]:null;
+    const ac=mo.spend&&mo.ad_sales?(mo.spend/mo.ad_sales*100).toFixed(1)+'%':'–';
+    return`<tr><td>${m}</td><td style="font-weight:600">${fN(mo.units)}</td><td>${chgPill(p2?.units,mo.units)}</td><td style="font-weight:600">${f$(mo.total_sales)}</td><td>${chgPill(p2?.total_sales,mo.total_sales)}</td><td>${f$(mo.spend)}</td><td>${f$(mo.ad_sales)}</td><td>${ac}</td><td>${mo.cvr?(mo.cvr*100).toFixed(1)+'%':'–'}</td></tr>`;
+  }).join('');
+
+  document.getElementById('asinContent').innerHTML=`
+    <div class="asin-hdr">
+      <div class="asin-title-row"><span class="badge b-${d.brand}">${d.brand}</span><span class="asin-title">${d.title||''}</span></div>
+      <span class="asin-meta">${asin} · 最新：${latest}</span>
+    </div>
+    <div class="four-col">
+      <div class="mcard"><div class="mcard-label">銷售額（${latest}）</div><div class="mcard-val">${f$(lm.total_sales)}</div><div class="mcard-sub">${ps(pm2.total_sales,lm.total_sales)} vs ${prev||''}</div></div>
+      <div class="mcard"><div class="mcard-label">銷售量（${latest}）</div><div class="mcard-val">${fN(lm.units)}</div><div class="mcard-sub">${ps(pm2.units,lm.units)} vs ${prev||''}</div></div>
+      <div class="mcard"><div class="mcard-label">廣告花費（${latest}）</div><div class="mcard-val">${f$(lm.spend)}</div><div class="mcard-sub">${ps(pm2.spend,lm.spend)} vs ${prev||''}</div></div>
+      <div class="mcard"><div class="mcard-label">ACOS（${latest}）</div><div class="mcard-val">${acosL?(acosL*100).toFixed(1)+'%':'–'}</div><div class="mcard-sub">${acosL&&acosP?ps(acosP,acosL)+' vs '+prev:'<span class="neutral">–</span>'}</div></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title"><span>銷售額 & 廣告</span><div class="legend"><span class="legend-item"><span class="legend-dot" style="background:${bc}"></span>總銷售</span><span class="legend-item"><span class="legend-dot" style="background:#E24B4A"></span>廣告花費</span><span class="legend-item"><span class="legend-dot" style="background:#639922"></span>廣告銷售</span></div></div>
+      <div style="position:relative;height:240px"><canvas id="asSC"></canvas></div>
+    </div>
+    <div class="two-col">
+      <div class="chart-card"><div class="chart-title">銷售量趨勢</div><div style="position:relative;height:180px"><canvas id="asUC"></canvas></div></div>
+      <div class="chart-card"><div class="chart-title">銷量 MoM 變化（%）</div><div style="position:relative;height:180px"><canvas id="asMM"></canvas></div></div>
+    </div>
+    <div class="two-col">
+      <div class="chart-card"><div class="chart-title">銷售額 MoM 變化（%）</div><div style="position:relative;height:180px"><canvas id="asRM"></canvas></div></div>
+      <div class="chart-card"><div class="chart-title">CVR & Glance Views</div><div style="position:relative;height:180px"><canvas id="asCV"></canvas></div></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">月度明細（最近 12 個月）</div>
+      <div style="overflow-x:auto"><table class="dt"><thead><tr><th>月份</th><th>銷售量</th><th>銷量 MoM</th><th>銷售額</th><th>銷售額 MoM</th><th>廣告花費</th><th>廣告銷售</th><th>ACOS</th><th>CVR</th></tr></thead><tbody>${tRows}</tbody></table></div>
+    </div>`;
+
+  if(scI)scI.destroy();if(ucI)ucI.destroy();if(cvI)cvI.destroy();if(mmI)mmI.destroy();
+
+  scI=new Chart(document.getElementById('asSC'),{type:'bar',data:{labels:labs,datasets:[{type:'bar',label:'總銷售額',data:sD,backgroundColor:bc+'33',borderColor:bc,borderWidth:1,yAxisID:'y1'},{type:'line',label:'廣告花費',data:spD,borderColor:'#E24B4A',borderWidth:2,pointRadius:2,tension:0.3,fill:false,yAxisID:'y2'},{type:'line',label:'廣告銷售',data:adD,borderColor:'#639922',borderWidth:2,pointRadius:2,tension:0.3,fill:false,yAxisID:'y1',borderDash:[4,3]}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false,callbacks:{label:ctx=>ctx.dataset.label+': '+f$(ctx.parsed.y)}}},scales:{x:{ticks:{font:{size:11},maxRotation:45},grid:{display:false}},y1:{position:'left',ticks:{font:{size:11},callback:v=>v>=1e6?'$'+(v/1e6).toFixed(1)+'M':'$'+(v/1e3).toFixed(0)+'K'},grid:{color:'rgba(128,128,128,0.06)'}},y2:{position:'right',ticks:{font:{size:11},callback:v=>'$'+(v/1e3).toFixed(0)+'K'},grid:{display:false}}}}});
+
+  ucI=new Chart(document.getElementById('asUC'),{type:'bar',data:{labels:labs,datasets:[{label:'銷售量',data:uD,backgroundColor:bc+'66',borderColor:bc,borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{size:11},maxRotation:45},grid:{display:false}},y:{ticks:{font:{size:11},callback:v=>v>=1e3?(v/1e3).toFixed(1)+'K':v},grid:{color:'rgba(128,128,128,0.06)'}}}}});
+
+  function momChart(canvasId,vals,label){
+    const mv=vals.map((v,i)=>i===0||vals[i-1]==null||vals[i-1]===0?null:+(((v-vals[i-1])/vals[i-1])*100).toFixed(1));
+    return new Chart(document.getElementById(canvasId),{type:'bar',data:{labels:labs,datasets:[{label,data:mv,backgroundColor:mv.map(v=>v==null?'transparent':v>=0?'#3B6D1188':'#A32D2D88'),borderColor:mv.map(v=>v==null?'transparent':v>=0?'#3B6D11':'#A32D2D'),borderWidth:1,borderRadius:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.parsed.y!=null?ctx.parsed.y.toFixed(1)+'%':'–'}}},scales:{x:{ticks:{font:{size:11},maxRotation:45},grid:{display:false}},y:{ticks:{font:{size:11},callback:v=>v+'%'},grid:{color:'rgba(128,128,128,0.06)'}}}}});
+  }
+  mmI=momChart('asMM',uD,'銷量 MoM');
+  const rmI=momChart('asRM',sD,'銷售額 MoM');
+
+  const hasCvr=cD.some(v=>v!=null),hasGv=gD.some(v=>v!=null);
+  const cvDs=[];
+  if(hasCvr)cvDs.push({label:'CVR',data:cD,borderColor:bc,borderWidth:2,pointRadius:2,tension:0.3,fill:false,yAxisID:'yc'});
+  if(hasGv)cvDs.push({label:'GV',data:gD,borderColor:'#BA7517',borderWidth:2,pointRadius:2,tension:0.3,fill:false,yAxisID:'yg',borderDash:[5,3]});
+  cvI=new Chart(document.getElementById('asCV'),{type:'line',data:{labels:labs,datasets:cvDs},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{font:{size:11},boxWidth:10,padding:8}}},scales:{x:{ticks:{font:{size:11},maxRotation:45},grid:{display:false}},yc:{position:'left',ticks:{font:{size:11},callback:v=>v.toFixed(1)+'%'},grid:{color:'rgba(128,128,128,0.06)'}},yg:{position:'right',ticks:{font:{size:11},callback:v=>v>=1e3?(v/1e3).toFixed(0)+'K':v},grid:{display:false}}}}});
+}
+
+initOverview();
+</script>
+</body>
+</html>
